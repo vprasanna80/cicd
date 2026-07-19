@@ -1,0 +1,139 @@
+name: Claude Tech Debt Scan
+
+on:
+  schedule:
+    # Every Monday at 03:00 UTC
+    - cron: '0 3 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: claude-debt-scan
+  cancel-in-progress: false
+
+jobs:
+  debt-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies (enables tsc-based unused-import checks)
+        run: npm ci --ignore-scripts || npm install --ignore-scripts
+        continue-on-error: true
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run tech debt scan
+        id: run_scan
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+
+          claude -p "$(cat .claude/prompts/debt-scan.md)" \
+            --model claude-haiku-4-5-20251001 \
+            --max-turns 20 \
+            --output-format text \
+            --allowedTools "Read,Grep,Glob,Bash(tsc --noEmit:*),Bash(npx tsc --noEmit:*)" \
+            | tee scan_output.md
+
+      - name: Split scan output into issue body + JSON summary
+        id: parse
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          import sys
+
+          with open("scan_output.md", encoding="utf-8") as f:
+              text = f.read()
+
+          match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+          if not match:
+              print("::error::No ```json summary block found in Claude's output")
+              sys.exit(1)
+
+          summary = json.loads(match.group(1))
+          with open("scan_summary.json", "w", encoding="utf-8") as f:
+              json.dump(summary, f, indent=2)
+
+          issue_body = text[: match.start()].rstrip() + "\n"
+          with open("issue_body.md", "w", encoding="utf-8") as f:
+              f.write(issue_body)
+
+          print(f"total_issues={summary.get('total_issues', 0)}")
+          print(f"critical={summary.get('critical', 0)}")
+          PY
+
+      - name: Expose summary counts
+        id: summary
+        run: |
+          {
+            echo "critical=$(python3 -c "import json;print(json.load(open('scan_summary.json')).get('critical', 0))")"
+            echo "total=$(python3 -c "import json;print(json.load(open('scan_summary.json')).get('total_issues', 0))")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tech-debt label exists
+        if: steps.summary.outputs.critical != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create "tech-debt" \
+            --repo "${{ github.repository }}" \
+            --color "B60205" \
+            --description "Automated tech-debt scan finding" \
+            || true
+
+      - name: Create GitHub issue for critical debt
+        if: steps.summary.outputs.critical != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Tech Debt Scan $(date -u +%F) — ${{ steps.summary.outputs.critical }} critical item(s)" \
+            --label "tech-debt" \
+            --body-file issue_body.md
+
+      - name: Record clean-scan result in job summary
+        if: steps.summary.outputs.critical == '0'
+        run: |
+          {
+            echo "## ✅ Tech Debt Scan — No Critical Issues"
+            echo ""
+            echo "Total issues found: **${{ steps.summary.outputs.total }}** (0 critical). No GitHub issue was created."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Always record scan totals in job summary
+        if: always()
+        run: |
+          {
+            echo "### Tech Debt Scan Result"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|---|---|"
+            echo "| Total issues | ${{ steps.summary.outputs.total || 'n/a' }} |"
+            echo "| Critical | ${{ steps.summary.outputs.critical || 'n/a' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech-debt-scan-${{ github.run_id }}
+          path: |
+            scan_output.md
+            scan_summary.json
+            issue_body.md
+          if-no-files-found: ignore

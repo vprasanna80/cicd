@@ -22,11 +22,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          node-version: '24'
+          node-version: '20'
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
 
       - name: Install project dependencies (enables tsc-based unused-import checks)
         run: npm ci --ignore-scripts || npm install --ignore-scripts
@@ -132,7 +132,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          node-version: '24'
+          node-version: '20'
           name: tech-debt-scan-${{ github.run_id }}
           path: |
             scan_output.md

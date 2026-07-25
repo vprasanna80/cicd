@@ -27,7 +27,13 @@ just make the correct, narrowly-scoped edits and stop.
    - `missing_jsdoc`: add a `/** ... */` block immediately above the
      export, describing what the function actually does based on reading
      its body — include `@param` for each parameter and `@returns` (or
-     `@returns void`) when the function returns a value.
+     `@returns void`) when the function returns a value. The JSDoc block
+     must be the comment immediately adjacent to the export line — if a
+     TODO/FIXME/HACK comment already sits directly above the export,
+     insert the JSDoc *between* that comment and the export (comment,
+     then JSDoc, then export), never above the existing comment, since
+     most tooling only associates a JSDoc block with a declaration when
+     nothing else sits between them.
    - `any_to_type`: replace `any` with the `suggested_type` from the
      finding (or an equally concrete type you derive from actually reading
      the code, if `suggested_type` is absent). Update only the type

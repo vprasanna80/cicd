@@ -1,0 +1,1 @@
+$prompt = Get-Content -Raw ..\.claude\prompts\debt-scan.md

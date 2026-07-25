@@ -60,6 +60,7 @@ def run_claude(prompt_text, model, max_turns, allowed_tools, log_name, timeout=9
         "--max-turns", str(max_turns),
         "--output-format", "text",
         "--allowedTools", allowed_tools,
+        "--permission-mode", "acceptEdits",
     ]
     try:
         result = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=timeout)
@@ -203,6 +204,18 @@ def main():
         return 1
 
     run(["git", "checkout", "-b", BRANCH_NAME])
+
+    log("running baseline verification gate")
+    if not run_verify_gate("baseline_verify.log"):
+        write_summary(
+            "## ❌ Autonomous refactor aborted\n\n"
+            "The baseline (before any phase changes) already fails "
+            "typecheck/test/build. Every phase would be reverted for this "
+            "pre-existing, unrelated failure, so no phases were attempted. "
+            "Fix the baseline first, then re-run. See `baseline_verify.log` "
+            "in the workflow artifacts for details."
+        )
+        return 1
 
     log("running before-scan")
     scan_prompt = (PROMPTS_DIR / "debt-scan.md").read_text(encoding="utf-8")

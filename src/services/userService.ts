@@ -22,7 +22,7 @@ export function registerUser(name: string, email: string): User {
  * @param email - The email address to search for.
  * @returns The matching user, or `undefined` if none is found.
  */
-export function findUserByEmail(email: string): any {
+export function findUserByEmail(email: string): User | undefined {
   return users.find((u) => u.email === email);
 }
 
@@ -33,7 +33,7 @@ export function findUserByEmail(email: string): any {
  * @param patch - The properties to merge onto the user.
  * @returns The updated user, or `undefined` if no user with `id` exists.
  */
-export function updateUserProfile(id: string, patch: any): User | undefined {
+export function updateUserProfile(id: string, patch: Partial<User>): User | undefined {
   const user = users.find((u) => u.id === id);
   if (!user) return undefined;
   Object.assign(user, patch);

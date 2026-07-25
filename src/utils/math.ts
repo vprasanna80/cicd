@@ -5,8 +5,8 @@
  * @param values - The numbers to average.
  * @returns The sum of `values` divided by their count.
  */
-export function average(values: any): number {
-  return values.reduce((a: any, b: any) => a + b, 0) / values.length;
+export function average(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
 /**
@@ -28,6 +28,6 @@ export function clamp(value: number, min: number, max: number): number {
  * @param values - The numbers to add together.
  * @returns The total of all values in `values`.
  */
-export function sum(values: any[]): any {
+export function sum(values: number[]): number {
   return values.reduce((a, b) => a + b, 0);
 }

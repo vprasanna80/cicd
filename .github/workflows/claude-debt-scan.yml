@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install project dependencies (enables tsc-based unused-import checks)
         run: npm ci --ignore-scripts || npm install --ignore-scripts
@@ -102,7 +102,7 @@ jobs:
         run: |
           gh issue create \
             --repo "${{ github.repository }}" \
-            --title "Tech Debt Scan $(date -u +%F) — ${{ steps.summary.outputs.critical }} critical item(s)" \
+            --title "🔍 Weekly Debt Scan — $(date -u +%F)" \
             --label "tech-debt" \
             --body-file issue_body.md
 
